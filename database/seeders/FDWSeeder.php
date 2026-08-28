@@ -13,14 +13,35 @@ class FDWSeeder extends Seeder
      */
     public function run(): void
     {
+        $modules = ['auth'];
+
+        // 1. Prepara a extensão e limpa servidores antigos
         $sql = 'CREATE EXTENSION IF NOT EXISTS postgres_fdw;';
-        $sql .= 'DROP SERVER IF EXISTS '.config('fdw.auth.module').' CASCADE;';
+        foreach ($modules as $module) {
+            $sql .= 'DROP SERVER IF EXISTS ' . config("fdw.{$module}.module") . ' CASCADE;';
+        }
         DB::unprepared($sql);
 
-        $sql = 'CREATE SERVER '.config('fdw.auth.module').' FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host \''.config('fdw.auth.host').'\', dbname \''.config('fdw.auth.database').'\');';
-        $sql .= 'CREATE USER MAPPING FOR '.config('fdw.auth.user').' SERVER '.config('fdw.auth.module').' OPTIONS (user \''.config('fdw.auth.user').'\', password \''.config('fdw.auth.password').'\');';
-        $sql .= 'ALTER SERVER '.config('fdw.auth.module').' OPTIONS (ADD updatable \'true\');';
-        $sql .= 'IMPORT FOREIGN SCHEMA public LIMIT TO (users,permissions,roles,model_has_permissions,model_has_roles,role_has_permissions,modules,user_modules) FROM SERVER '.config('fdw.auth.module').' INTO public;';
-        DB::unprepared($sql);
+        // 2. Mapeamento das tabelas por módulo
+        $tablesMap = [
+            'auth' => 'users,permissions,roles,model_has_permissions,model_has_roles,role_has_permissions,modules,user_modules',
+        ];
+
+        // 3. Criação dinâmica dos SERVERS, USER MAPPINGS e IMPORT SCHEMA
+        foreach ($tablesMap as $key => $tables) {
+            $module   = config("fdw.{$key}.module");
+            $host     = config("fdw.{$key}.host");
+            $port     = config("fdw.{$key}.port", '5432');
+            $database = config("fdw.{$key}.database");
+            $user     = config("fdw.{$key}.user");
+            $password = config("fdw.{$key}.password");
+
+            $sql  = "CREATE SERVER {$module} FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host '{$host}', port '{$port}', dbname '{$database}');";
+            $sql .= "CREATE USER MAPPING FOR CURRENT_USER SERVER {$module} OPTIONS (user '{$user}', password '{$password}');";
+            $sql .= "ALTER SERVER {$module} OPTIONS (ADD updatable 'true');";
+            $sql .= "IMPORT FOREIGN SCHEMA public LIMIT TO ({$tables}) FROM SERVER {$module} INTO public;";
+
+            DB::unprepared($sql);
+        }
     }
 }
