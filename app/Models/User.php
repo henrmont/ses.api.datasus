@@ -3,7 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
@@ -12,7 +19,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -23,6 +30,9 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
+        'is_valid',
+        'image',
+        'module_id',
     ];
 
     /**
@@ -67,4 +77,41 @@ class User extends Authenticatable implements JWTSubject
     {
         return [];
     }
+
+    // Scopes
+    public function scopeDatasus($query)
+    {
+        return $query->whereHas('modules', function ($q) {
+            $q->where('name', 'datasus');
+        });
+    }
+
+    //Relationships
+    public function modules(): BelongsToMany
+    {
+        return $this->belongsToMany(Module::class, 'user_modules')->withPivot(['is_valid','is_editable']);
+    }
+
+    public function userModule(): HasMany
+    {
+        return $this->hasMany(UserModule::class);
+    }
+
+    public function professional(): HasOne
+    {
+        return $this->hasOne(Professional::class);
+    }
+
+    // Accessors & Mutators
+    protected $appends = [
+        'module',
+    ];
+
+    protected function module(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->modules()->where('name', 'datasus')->first()
+        );
+    }
+    
 }
