@@ -50,5 +50,6 @@ Route::middleware(['api', Auth::class])
     ->name('sigtap.')
     ->controller(SigtapController::class)
     ->group(function () {
+        Route::get('get-competences', 'getCompetences')->name('index');
         Route::post('process', 'process')->name('process');
     });

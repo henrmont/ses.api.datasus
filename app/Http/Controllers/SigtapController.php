@@ -31,12 +31,15 @@ use App\Models\ServiceClassification;
 use App\Models\SiaSih;
 use App\Models\Subgroup;
 use App\Models\Tuss;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use ZipArchive;
 
 class SigtapController extends Controller
 {
+    use AuthorizesRequests;
+
     private function getImportedCompetence($file) {
         $filename = explode('_', $file->getClientOriginalName());
         return $filename[1];
@@ -1540,7 +1543,10 @@ class SigtapController extends Controller
 
     public function getCompetences()
     {
-        $competences = Competence::get();
+        $this->authorize('datasus/sigtap listar');
+        $competences = Competence::query()
+            ->orderBy('id','desc')
+            ->get();
         return response()->json($competences, 200);
     }
 
